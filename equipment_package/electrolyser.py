@@ -13,40 +13,55 @@ p_0 = 101325  # pa
 
 
 def Butler_Bolmer(E_act_k, I, I0=3000, alpha=0.5, z=2, T=300):
+    # Equation depicting the current density and activation overpotential
+    # \left.I=I_{0, k}\left[\exp \left(\frac{\alpha_{k} \cdot z . F \cdot E_{a c t, k}}{R \cdot T}\right)-\exp
+    # \left(-\frac{\left(1-\alpha_{k}\right) \cdot z \cdot F \cdot E_{a c t, k}}{R \cdot T}\right)\right]\right]
     A = alpha * z * F / R / T
     B = -(1 - alpha) * z * F / R / T
     return I - I0 * (math.exp(A * E_act_k) - math.exp(B * E_act_k))
 
+
 def derivative_Butler_bolmer(E_act_k, I, I0=3000, alpha=0.5, z=2, T=300):
+    # \frac{dI}{dE_{act}}
     A = alpha * z * F / R / T
     B = -(1 - alpha) * z * F / R / T
     return -I0 * (A * math.exp(A * E_act_k) - B * math.exp(B * E_act_k))
 
-class electrolyser():
-    def __init__(self, T=300, p=p_0, A=0.05, I=5000, I0_an = 1e-1, I0_ca = 1e-1, thickness = 3e-2, alpha_an = 0.5,
-                 alpha_ca = 0.5):
-        self.T = T # K
-        self.p = p # Pa
-        self.A = A # m2
-        self.I = I # A/m2
-        self.I0_an = I0_an # A/m2
-        self.I0_ca = I0_ca # A/m2
-        self.thickness = thickness # m
-        self.alpha_an = alpha_an
-        self.alpha_ca = alpha_ca
 
-    def H2_production(self, f1=250, f2 =0.96):
+class electrolyser():
+    def __init__(self, T=300, p=p_0, A=0.05, I=5000, I0_an=1e-1, I0_ca=1e-1, thickness=3e-2, alpha_an=0.5,
+                 alpha_ca=0.5):
+        self.T = T  # K
+        self.p = p  # Pa
+        self.A = A  # m2
+        self.I = I  # A/m2, current density not current!
+        self.I0_an = I0_an  # A/m2, exchange current density of anode, highly depends on electrode reaction
+        self.I0_ca = I0_ca  # A/m2, cathode
+        self.thickness = thickness  # m
+        self.alpha_an = alpha_an  # charge transfer coefficient, anode
+        self.alpha_ca = alpha_ca  # charge transfer coefficient,cathode
+
+    def H2_production(self, f1=250, f2=0.96):
         # Faraday law
-        # mol/s, considering the leak current, eta_faraday is slightly less than one
+        # kg/s, considering the leak current, eta_faraday is slightly less than one
         # faraday efficiency is also called current efficiency, deviation of which to one is produced by parastic current
         # refer to: Modeling of advanced alkaline electrolyzers: a system computation approach, 2003
-        eta_faraday = (self.I/10)**2/(f1 + (self.I/10)**2)*f2
+        eta_faraday = (self.I / 10) ** 2 / (f1 + (self.I / 10) ** 2) * f2
         n_H2 = eta_faraday * self.I * self.A / (2 * F)
-        return n_H2
+        m_H2 = n_H2 * 2 / 1000
+        return m_H2  # kg/s
 
     def efficiency(self):
-        return self.H2_production() * 237 / (self.A * self.I * self.E_cell()) * 1000
-        # return 1.473/self.E_cell()# 1.473 is the thermal neural voltage, with which the cell is thermal balanced.
+        """
+        \eta = \frac{H_{2,p}H_{H\!H\!V,H_2}}{E_{cell}I}
+        :return:
+        """
+        return self.H2_production() * 142000 / self.power_input() * 1000  #
+        """
+        The high heat value of hydrogen is 286kJ/mol, responding to around 142kJ/g, 142000kJ/kg
+        Another choice is :
+        return 1.473/self.E_cell()# 1.473 is the thermal neural voltage, with which the cell is thermal balanced.
+        """
 
     def E_rev_0(self):
         '''
@@ -81,6 +96,7 @@ class electrolyser():
                      / derivative_Butler_bolmer(act_op, self.I, I0=self.I0_ca, alpha=self.alpha_ca, T=self.T)
         return act_op
 
+    # Some approximate approaches to estimate activation overpotential
     # def E_act(self, T_ref=400, mode='Tafel',
     #           p_H2=101325, p_O2=101325, I_0ref=3454, alpha_k=0.25
     #           ):
@@ -125,6 +141,12 @@ class electrolyser():
         return E_ohm
 
     def E_diff(self, I_lim=12000, beta=0.1):
+        '''
+        Diffusion overvoltage
+        :param I_lim: Limiting current density
+        :param beta: empiric coefficient
+        :return: Diffusion overvoltage
+        '''
         E_diff = R * self.T / (2 * beta * F) * math.log(1 + self.I / I_lim)
         return E_diff
 
@@ -142,8 +164,20 @@ class electrolyser():
     def set_current_density(self, set_I=5000):
         self.I = set_I
 
-    def set_temperature(self, T=300):
-        self.T = T
+    def temperature(self,
+                    H_air=100,  # W/(m2 K)
+                    H_water=7000,  # W/(m2 K)
+                    time_interval=1  # s
+                    ):
+        Heat_Capacity = 174  # kJ/celcius
+        Area = 0.05
+        T_air = 20 + 273.15
+        T_water = 50 + 273.15
+        heat_generation = (self.E_cell() - 1.473) *self.I*self.A
+        Delta_T = (heat_generation + H_air * Area * (T_air - self.T) + H_water * Area * (
+                    T_water - self.T)) * time_interval / 1000 / Heat_Capacity
+        self.T = self.T + Delta_T
+
 
 class electrolyser_group():
     def __init__(self, series=100, parallel=200, T=300, p=101325, I_max=10000, I_min=100):
@@ -210,6 +244,7 @@ def set_power_group(ele=electrolyser_group(), power=14.5):
     set_power(ele.single, power_1)
 
 
+# An emperical model for alkaline electrolyser.
 # class alkaline_ele(electrolyser):
 #     def __init__(self, T=300, p=p_0, A=100e-4, I=5000):
 #         super().__init__(T, p, A, I)
@@ -234,23 +269,27 @@ def set_power_group(ele=electrolyser_group(), power=14.5):
 #         return self.E_cell_empirical() / E_tn
 
 if __name__ == '__main__':
-    test = 0
+    test = 2
     if test == 0:
         fig, ax = plt.subplots()
-        for temperature in range(273,373,20):
-            a = electrolyser(T=temperature,I0_an=1e3, I0_ca=1e3,thickness=5e-3)
-            current_density = [i * 50 for i in range(1, 200)]
+        for temperature in range(273, 323, 10):
+            a = electrolyser(T=temperature, I0_an=1e0, I0_ca=1e0, thickness=10e-4)
+            current_density = [i * 50 for i in range(10, 200)]
             voltage = []
-            n_h2= []
+            n_h2 = []
             power = []
             eff = []
             for c in current_density:
                 a.set_current_density(c)
                 voltage.append(a.E_cell())
-                n_h2.append(a.H2_production())
+                n_h2.append(a.H2_production() * 3600)
                 power.append(a.power_input())
                 eff.append(a.efficiency())
-            ax.plot(power, eff, label = f'T={temperature}')
+            x = current_density
+            y = voltage
+            ax.plot(power, n_h2, label=f'T={temperature}')
+            current_str = 'Current density/(A/m2)'
+            ax.set(xlabel='Power/W', ylabel='M_h2/(kg/h)')
             # ax.set_xlim([0,1e4])
             # ax.set_ylim([0,5])
         # ax.set(xlabel = 'Current density', ylabel = 'Voltage')
@@ -258,7 +297,20 @@ if __name__ == '__main__':
         plt.show()
     elif test == 1:
         a = electrolyser_group()
-        print(a.max_power,a.min_power)
-        set_power_group(a,14.5)
+        print(a.max_power, a.min_power)
+        set_power_group(a, 14.5)
         print(a.single.I)
         pass
+    elif test == 2:
+        a = electrolyser()
+        tem = []
+        hour = 10
+        for t in range(hour * 3600):
+            a.temperature(time_interval=1, H_air=50, H_water=1000)
+            tem.append(a.T - 273.15)
+        fig, ax = plt.subplots()
+        time_span = [i / 3600 for i in range(hour * 3600)]
+        ax.plot(time_span, tem, color='blue')
+        ax.set(xlabel='Time/h', ylabel='Temperature/℃')
+        ax.grid() # Make the figure look better
+        plt.show()

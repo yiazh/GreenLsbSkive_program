@@ -1,9 +1,12 @@
 '''
 A generic dynamic model parameterized to represent most popular types of rechargeable batteries
+
 Refer to: Sizing optimization, dynamic modeling and energy management strategies of a stand-alone PV/hydrogen/
 battery-based hybrid system
 
 '''
+import matplotlib.pyplot as plt
+
 class battery_bank():
     def __init__(self,capacity = 250, E_bat = 12, serial_number = 30, parallel_number = 300,
                  internal_resistance = 0.05, soc = 0.1, soc_min = 0.1, soc_max = 0.85):
@@ -36,12 +39,16 @@ class battery_bank():
             self.soc = self.soc - I * time / 3600 / self.capacity
             return -discharge_power
 
+
 if __name__ == "__main__":
-    a = battery_bank()
-    print('soc: {}'.format(a.soc))
-    print(a.charge(time = 10*3600))
-    a.charge(time = 27000)
-    print('soc: {}'.format(a.soc))
-    print(a.discharge(time = 10))
-    print('soc: {}'.format(a.soc))
-    pass
+    a = battery_bank(soc=0.6)
+    print('Initial soc: {}'.format(a.soc))
+    #-------------------Performance in constant current supply ---------------------------------
+    soc_hour = []
+    for i in range(3600):
+        a.charge(time=1)
+        soc_hour.append(a.soc)
+    fig, ax = plt.subplots()
+    ax.plot(range(3600),soc_hour)
+    plt.show()
+

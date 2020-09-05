@@ -70,11 +70,12 @@ if __name__ == '__main__':
     ax.plot(range(len(Y_pred)), Y_pred, 'b', label="predict")
     ax.plot(range(len(Y_pred)), Y_test, 'r', label="test")
     ax.set_title('')
+    ax.legend()
     plt.show()
 
-    # fig2, ax2 = plt.subplots()
-    # ax2.scatter(Y_pred, Y_test)
-    # plt.show()
+    fig2, ax2 = plt.subplots()
+    ax2.scatter(Y_pred, Y_test)
+    plt.show()
 
     # 20160410
     previous_day_wind_speed_data = np.array([4.23, 4.53, 4.83, 5.13, 5.31, 5.49, 5.67, 5.66, 5.64, 5.63, 5.54, 5.46,
@@ -88,4 +89,5 @@ if __name__ == '__main__':
     fig3, ax3 = plt.subplots()
     ax3.plot(range(len(predicted_wind_speed)), predicted_wind_speed, 'b', label="predicted")
     ax3.plot(range(len(real_observed_wind_speed)), real_observed_wind_speed, 'r', label="real")
+    ax3.legend()
     plt.show()

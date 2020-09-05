@@ -1,5 +1,7 @@
 '''
-This sub-program is used to predict the day-ahead price in DK1
+This sub-program is used to predict the day-ahead price in DK1.
+
+Not so relevant, abandoned
 '''
 
 import pandas as pd

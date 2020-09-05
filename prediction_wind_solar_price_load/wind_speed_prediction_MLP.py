@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -36,20 +37,21 @@ class WS_neural_network(nn.Module):
         out = self.l2(out)
         return out
 
+
 # ----------------------------------------------Build MLP ANN----------------------------------
 input_size = 24
 hidden_size = 40
 
 ws_mlp_model = WS_neural_network(input_size, hidden_size)
+Predicted_parameter_path = Path(Path().absolute() / "wind_mlp.pth")
 
 try:
-    ws_mlp_model.load_state_dict(torch.load("C:/phd/Paper/Paper0-system architecture/GreenLsbSkive_program"
-                                            "/prediction_wind_solar_price_load/wind_mlp.pth"))
+    ws_mlp_model.load_state_dict(torch.load(Predicted_parameter_path))
     print("loading wind speed prediction model parameters")
     ws_mlp_model.eval()
 except IOError:
     print('Not trained')
-except RuntimeError:# this exception appears when changing ANN size
+except RuntimeError:  # this exception appears when changing ANN size
     print('Adjusting network structure')
 
 
@@ -57,6 +59,7 @@ def prediction_function_wind_mlp(observed_data=np.array([1])):
     with torch.no_grad():
         observed_data_tensor = torch.from_numpy(observed_data.astype(np.float32))
         return ws_mlp_model(observed_data_tensor).numpy()
+
 
 if __name__ == '__main__':
     # ----------------------------------------------Data preprocessing----------------------------------
@@ -162,14 +165,12 @@ if __name__ == '__main__':
 
     predicted_wind_speed = prediction_function_wind_mlp(previous_day_wind_speed_data)
 
-    #save the model parameters to avoid training it every time
+    # save the model parameters to avoid training it every time
     file = "wind_mlp.pth"
-    torch.save(ws_mlp_model.state_dict(),file)
+    torch.save(ws_mlp_model.state_dict(), file)
 
     fig, ax = plt.subplots()
-    ax.plot(range(real_observed_wind_speed.__len__()),real_observed_wind_speed,color = 'red',label = "real data")
-    ax.plot(range(predicted_wind_speed.__len__()),predicted_wind_speed,color = 'blue',label = "predicted data")
-    ax.set_ylim([3,6])
+    ax.plot(range(real_observed_wind_speed.__len__()), real_observed_wind_speed, color='red', label="real data")
+    ax.plot(range(predicted_wind_speed.__len__()), predicted_wind_speed, color='blue', label="predicted data")
+    ax.set_ylim([3, 6])
     plt.show()
-
-

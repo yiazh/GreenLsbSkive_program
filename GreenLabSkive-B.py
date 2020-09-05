@@ -16,7 +16,7 @@ import numpy as np
 import pandapower as pp
 import pandas as pd
 import matplotlib.pyplot as plt
-import Wind_Prediction
+from prediction_wind_solar_price_load import wind_speed_prediction_MLP
 
 total_cycle = 96 # 96*15 minutes,24h
 p0 = 101325 # Atmospheric pressure
@@ -28,11 +28,11 @@ day_ahead_wind_speed_data = np.array([4.23,4.53,4.83,5.13,5.31,5.49,5.67,5.66,5.
 real_observed_wind_speed = np.array([4.03, 4.02,4.01,4,3.92,3.84,3.77,3.91,4.06,4.21,4.29,4.36,4.44,
 							 	     4.73,5.02,5.31,5.22,5.13,5.03,4.94,4.84,4.74,4.58,4.42])
 # prediction data
-predicted_wind_speed = Wind_Prediction.prediction_function_wind(day_ahead_wind_speed_data)
+predicted_wind_speed = wind_speed_prediction_MLP.prediction_function_wind_mlp(day_ahead_wind_speed_data)
 
 # Read data on 0411
 directory_path = os.path.dirname(__file__)
-input_data_path = r'{}/Historical_Data'.format(directory_path)
+input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'
 
@@ -52,9 +52,6 @@ Electrolyser_gls = electrolyser.electrolyser_group()
 
 #Build the hydrogen tank
 Hydrogen_tank_gls = hydrogen.hydrogen_tank()
-
-#Build the load
-pass
 
 supply_hourly = []
 battery_soc = []
@@ -163,6 +160,7 @@ while cycle<total_cycle:
 
 	external_grid_power.append(gls_network_results['External_grid']['p_mw'][0])
 	cycle += 1
+	print(cycle)
 	pass
 
 # power supply

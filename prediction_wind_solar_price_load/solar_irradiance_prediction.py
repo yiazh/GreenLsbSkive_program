@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
 # ----------------------------------------------Build MLP ANN----------------------------------
@@ -38,9 +39,10 @@ class SI_neural_network(nn.Module):
 si_mlp_model = SI_neural_network(input_size, hidden_size)
 
 #--------------------Try to load existing model parameters-----------------------------------------
+Predicted_parameter_path = Path(Path().absolute() / "solar_mlp.pth")
+
 try:
-    si_mlp_model.load_state_dict(torch.load("C:/phd/Paper/Paper0-system architecture/GreenLsbSkive_program"
-                                            "/prediction_wind_solar_price_load/solar_mlp.pth"))
+    si_mlp_model.load_state_dict(torch.load(Predicted_parameter_path))
     si_mlp_model.eval()
     print("loading solar irradiacne prediction model parameters")
 except IOError:

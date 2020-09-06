@@ -1,5 +1,4 @@
 import math
-̥
 
 def crf(rate=0.05, life=25):
     '''

@@ -4,6 +4,9 @@ Created on June 14, 2020
 Author: Yi Zheng
 
 GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 Azimuth:3
+
+Linear programming method is based on the package "scipy", where problem is formulated through matrix.
+Be careful with the variable definition.
 '''
 from equipment_package import wind_turbine, battery, hydrogen
 from equipment_package import pv, electrolyser, gls_network_function, economic
@@ -65,35 +68,10 @@ elif scenario == 'High_re_high_price':
     predicted_solar_irradiance = solar_irradiance_prediction.prediction_fun_solar_irradiance()
     pass
 
-
-Saving_path = Path(Path().absolute() / 'Figure'/'Usecase1'/('usecase1'+scenario+'.csv'))
-
-# fig_pre_solar, ax_pre_solar = plt.subplots()
-# ax_pre_solar.plot(range(real_solar_irradiance.__len__()), real_solar_irradiance,
-#                   color='orangered', label='real value')
-# ax_pre_solar.plot(range(predicted_solar_irradiance.__len__()), predicted_solar_irradiance,
-#                   color='navy', label='predicted value')
-# ax_pre_solar.legend()
-# ax_pre_solar.set_xlabel('Time(hour)')
-# ax_pre_solar.set_ylabel('Solar irradiance(W/m2)')
-# ax_pre_solar.grid()
-# plt.savefig(figure_file /'Usecase1' / 'solar_pred.png', dpi=150)
-#
-# fig_pre_wind, ax_pre_wind = plt.subplots()
-# ax_pre_wind.plot(range(real_observed_wind_speed.__len__()), real_observed_wind_speed,
-#                  color='orangered', label='real data')
-# ax_pre_wind.plot(range(predicted_wind_speed.__len__()), predicted_wind_speed,
-#                  color='navy', label='predicted data')
-# ax_pre_wind.legend()
-# ax_pre_wind.set_xlabel('Time(hour)')
-# ax_pre_wind.set_ylabel('Wind speed(m/s)')
-# ax_pre_wind.set_ylim([3,12])
-# ax_pre_wind.grid()
-# plt.savefig(figure_file /'Usecase1' / 'wind_speed_pred.png', dpi=150)
-# plt.show()
+Saving_path = Path(Path().absolute() / 'Figure' / 'Usecase1' / ('usecase1' + scenario + '.csv'))
 
 # Read data on 0411
-directory_path = os.path.dirname(__file__)
+directory_path = Path(Path().absolute().parent)
 input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'
@@ -287,21 +265,21 @@ for t in range(8 * total_cycle, 9 * total_cycle):
 # inequality constraints, all the h2 consumption is positive
 A_ineq_gls = np.zeros((4 * total_cycle, objective_dict.__len__() * total_cycle))
 B_ineq_gls = np.zeros(4 * total_cycle)
-for t  in range(0,1 * total_cycle):
-    A_ineq_gls[t][t+6*total_cycle]=-1
-    B_ineq_gls[t]=h2_consumption['Quantfuel'][t]
+for t in range(0, 1 * total_cycle):
+    A_ineq_gls[t][t + 6 * total_cycle] = -1
+    B_ineq_gls[t] = h2_consumption['Quantfuel'][t]
 
-for t  in range(1*total_cycle,2 * total_cycle):
-    A_ineq_gls[t][t+6*total_cycle]=-1
-    B_ineq_gls[t]=h2_consumption['Methanol_systhesis'][t-total_cycle]
+for t in range(1 * total_cycle, 2 * total_cycle):
+    A_ineq_gls[t][t + 6 * total_cycle] = -1
+    B_ineq_gls[t] = h2_consumption['Methanol_systhesis'][t - total_cycle]
 
-for t  in range(2*total_cycle,3 * total_cycle):
-    A_ineq_gls[t][t+6*total_cycle]=-1
-    B_ineq_gls[t]=h2_consumption['EverFuel'][t-2*total_cycle]
+for t in range(2 * total_cycle, 3 * total_cycle):
+    A_ineq_gls[t][t + 6 * total_cycle] = -1
+    B_ineq_gls[t] = h2_consumption['EverFuel'][t - 2 * total_cycle]
 
-for t  in range(3*total_cycle,4 * total_cycle):
-    A_ineq_gls[t][t+5*total_cycle]=1
-    B_ineq_gls[t]=62.5-h2_consumption['EverFuel'][t-3*total_cycle]
+for t in range(3 * total_cycle, 4 * total_cycle):
+    A_ineq_gls[t][t + 5 * total_cycle] = 1
+    B_ineq_gls[t] = 62.5 - h2_consumption['EverFuel'][t - 3 * total_cycle]
 
 bound_dict = {'external_grid': [(None, None)] * total_cycle,
               'battery': [(-1.36, 1.36)] * total_cycle,
@@ -319,9 +297,9 @@ for value in bound_dict.values():
 bound_gls = tuple(bound)
 
 # solve
-res = op.linprog(c, A_ub= A_ineq_gls, b_ub=B_ineq_gls,A_eq=A_eq_gls, b_eq=B_eq_gls, bounds=bound_gls)
+res = op.linprog(c, A_ub=A_ineq_gls, b_ub=B_ineq_gls, A_eq=A_eq_gls, b_eq=B_eq_gls, bounds=bound_gls)
 print(res)
-print(res.success)
+print("Successfuly solved?",res.success)
 
 res_dict_opt = {'external_grid': res.x[0:total_cycle],
                 'battery': res.x[total_cycle:2 * total_cycle],
@@ -335,7 +313,7 @@ res_dict_opt = {'external_grid': res.x[0:total_cycle],
                 'everfuel_h2': np.sum([res.x[8 * total_cycle:9 * total_cycle], h2_consumption['EverFuel']], axis=0)
                 }
 
-load_data_p['Protein']= res_dict_opt['protein'].tolist()
+load_data_p['Protein'] = res_dict_opt['protein'].tolist()
 cycle_power_flow = 0
 
 while cycle_power_flow < total_cycle:
@@ -425,5 +403,3 @@ try:
     pd_results.to_csv(Saving_path)
 except PermissionError:
     print('File already exists')
-
-

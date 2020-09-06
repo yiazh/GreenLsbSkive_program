@@ -4,6 +4,7 @@ Created on June 14, 2020
 Author: Yi Zheng
 
 GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 Azimuth:3
+Linear programming method is based on the package "mip".
 '''
 import os
 import math
@@ -70,7 +71,7 @@ elif scenario == 'High_re_high_price':
     pass
 
 # Read data on 0411
-directory_path = os.path.dirname(__file__)
+directory_path = Path(Path().absolute().parent)
 input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'

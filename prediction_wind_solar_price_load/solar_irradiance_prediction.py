@@ -13,7 +13,6 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
 # ----------------------------------------------Build MLP ANN----------------------------------
@@ -39,7 +38,8 @@ class SI_neural_network(nn.Module):
 si_mlp_model = SI_neural_network(input_size, hidden_size)
 
 #--------------------Try to load existing model parameters-----------------------------------------
-Predicted_parameter_path = Path(Path().absolute() / "solar_mlp.pth")
+directory_path = os.path.dirname(__file__)
+Predicted_parameter_path = r'{}/solar_mlp.pth'.format(directory_path)
 
 try:
     si_mlp_model.load_state_dict(torch.load(Predicted_parameter_path))

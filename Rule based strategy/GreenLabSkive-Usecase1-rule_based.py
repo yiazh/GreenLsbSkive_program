@@ -7,6 +7,9 @@ GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 A
 '''
 from equipment_package import wind_turbine, battery, hydrogen
 from equipment_package import pv, electrolyser, gls_network_function, economic
+from prediction_wind_solar_price_load import wind_speed_prediction_MLP, solar_irradiance_prediction, \
+    ele_price_prediction
+from pathlib import Path
 import os
 import math
 import scipy.signal as signal  # Used to get extremum
@@ -14,9 +17,7 @@ import numpy as np
 import pandapower as pp
 import pandas as pd
 import matplotlib.pyplot as plt
-from prediction_wind_solar_price_load import wind_speed_prediction_MLP, solar_irradiance_prediction, \
-    ele_price_prediction
-from pathlib import Path
+
 
 total_cycle = 96  # 96*15 minutes,24h
 p0 = 101325  # Atmospheric pressure
@@ -33,10 +34,10 @@ real_solar_irradiance = np.array([0, 0, 0, 0, 0, 23.66, 164.81, 394.79, 624.5, 8
                                   923.55, 775.91, 559.14, 333.03, 108.54, 0, 0, 0, 0, 0, 0])
 # predicted data
 predicted_wind_speed = wind_speed_prediction_MLP.prediction_function_wind_mlp(previous_day_wind_speed_data)
-predicted_day_ahead_ele_price = ele_price_prediction.Ele_price_prediction(temporaty_time=168)
+predicted_day_ahead_ele_price = ele_price_prediction.Ele_price_prediction(temporaty_time=432)
 predicted_solar_irradiance = solar_irradiance_prediction.prediction_fun_solar_irradiance()
 
-figure_file = Path(Path().absolute() / 'Figure')
+figure_file = Path(Path().absolute().parent / 'Figure')
 
 fig_pre_solar, ax_pre_solar = plt.subplots()
 ax_pre_solar.plot(range(real_solar_irradiance.__len__()), real_solar_irradiance,
@@ -47,8 +48,7 @@ ax_pre_solar.legend()
 ax_pre_solar.set_xlabel('Time(hour)')
 ax_pre_solar.set_ylabel('Solar irradiance(W/m2)')
 ax_pre_solar.grid()
-plt.savefig(figure_file /'Usecase2' / 'solar_pred.png', dpi=150)
-
+plt.savefig(figure_file / 'solar_pred.png', dpi=150)
 
 fig_pre_wind, ax_pre_wind = plt.subplots()
 ax_pre_wind.plot(range(real_observed_wind_speed.__len__()), real_observed_wind_speed,
@@ -60,11 +60,11 @@ ax_pre_wind.set_xlabel('Time(hour)')
 ax_pre_wind.set_ylabel('Wind speed(m/s)')
 ax_pre_wind.set_ylim([3, 6])
 ax_pre_wind.grid()
-plt.savefig(figure_file /'Usecase2' / 'wind_speed_pred.png', dpi=150)
-
+plt.savefig(figure_file / 'wind_speed_pred.png', dpi=150)
+print('Prediction results saved')
 
 # Read data on 0411
-directory_path = os.path.dirname(__file__)
+directory_path = Path(Path().absolute().parent)
 input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'
@@ -73,12 +73,8 @@ Ambient_Data = pd.read_csv(File_data)
 # ---------------------------------------Data preprocessing-----------------------------------------
 Annual_real_rate = 0.05
 OandM_cost = (54 * 2e6 * 0.02 + 26.8 * 3e6 * 0.02) / (54 + 26.8) / (365 * 24)
-hourly_cost = economic.crf(Annual_real_rate)*(54 * 2e6 + 26.8 * 3e6 ) / 365 / 24 /(54 + 26.8)
+hourly_cost = economic.crf(Annual_real_rate) * (54 * 2e6 + 26.8 * 3e6) / 365 / 24 / (54 + 26.8)
 res_av_cost = OandM_cost + hourly_cost
-
-# Get all the extremum of the price
-price_extremum_greater = signal.argrelextrema(predicted_day_ahead_ele_price, np.greater_equal)
-price_extremum_less = signal.argrelextrema(predicted_day_ahead_ele_price, np.less_equal)
 
 # Build the wind turbines
 WT_gls = [wind_turbine.wind_turbine(r=40, height=40)] * 13
@@ -104,7 +100,7 @@ load_data_p_mw = [0.98,  # Quantfuel, 2020), start up tests currently. It also c
                   0.7,  # Methanol facility
                   2,  # GreenSkive college
                   0,  # Electrolyser, which is considered in storage
-                  ]  # The first one stands for protein plant, which should be used as DR
+                  ]
 load_data_q_mvar = [0.2] * 8
 
 supply_RES = []  # Total energy supplied by RES
@@ -128,6 +124,15 @@ while cycle < total_cycle:
 
     # Run network builder function
     gls_network, gls_network_results_original = gls_network_function.gls_network_builder()
+
+    # ----------------------------Consumption------------------------------------------------
+    # %% Change power consumption from loads
+    gls_network.load.loc[:, 'name']  # order in which to supply load data
+
+    gls_network.load.loc[:, 'p_mw'] = load_data_p_mw
+    gls_network.load.loc[:, 'q_mvar'] = load_data_q_mvar
+
+    Load = np.array(load_data_p_mw).sum()
 
     # ----------------------------Generation------------------------------------------------
     # Wind speed at 10m
@@ -153,45 +158,40 @@ while cycle < total_cycle:
     RE_power = np.array(generator_data_p).sum()
     supply_RES.append(RE_power)
 
-    gls_network.sgen.loc[:, 'p_mw'] = generator_data_p
-    gls_network.sgen.loc[:, 'q_mvar'] = generator_data_q_mvar
-
-    # ----------------------------Consumption------------------------------------------------
-    # %% Change power consumption from loads
-    gls_network.load.loc[:, 'name']  # order in which to supply load data
-
-    gls_network.load.loc[:, 'p_mw'] = load_data_p_mw
-    gls_network.load.loc[:, 'q_mvar'] = load_data_q_mvar
-
-    Load = np.array(load_data_p_mw).sum()
-
     # excessive power
     Ex_power = RE_power - Load
 
-    # -----------------------------Strategies-------------------------------------------------
-    if Ex_power > 0:
-        if Ex_power >= Electrolyser_gls.max_power:
-            electrolyser.set_power_group(Electrolyser_gls, Electrolyser_gls.max_power)
-            if Hydrogen_tank_gls.p <= 200 * p0:
-                Electrolyser_storage = Electrolyser_gls.power()
-                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
-                Battery_storage = Battery_gls.charge(time=900)
-            else:
-                Battery_storage = Battery_gls.charge(time=900)
-                Electrolyser_storage = 0
-        elif Ex_power <= Electrolyser_gls.min_power:
-            Battery_storage = Battery_gls.charge(time=900)
-            Electrolyser_storage = 0
+    gls_network.sgen.loc[:, 'p_mw'] = generator_data_p
+    gls_network.sgen.loc[:, 'q_mvar'] = generator_data_q_mvar
+
+    # -----------------------------Strategies-----------------------------------------------
+    if predicted_day_ahead_ele_price[hour] < res_av_cost:
+        electrolyser.set_power_group(Electrolyser_gls, 12)
+        if Hydrogen_tank_gls.p <= 200 * p0:
+            Electrolyser_storage = Electrolyser_gls.power()
+            Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
         else:
-            electrolyser.set_power_group(Electrolyser_gls, Ex_power)
-            if Hydrogen_tank_gls.p <= 200 * p0:
-                Electrolyser_storage = Electrolyser_gls.power()
-                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
-                Battery_storage = 0
+            Electrolyser_storage = 0
+        Battery_storage = Battery_gls.charge(time=900)
+        h2_production_cost.append(Electrolyser_storage * predicted_day_ahead_ele_price[hour] * 0.25)
     else:
+        if Ex_power > 0:
+            if Ex_power >= 12:
+                electrolyser.set_power_group(Electrolyser_gls, 12)
+                if Hydrogen_tank_gls.p <= 200 * p0:
+                    Electrolyser_storage = Electrolyser_gls.power()
+                    Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
+                else:
+                    Electrolyser_storage = 0
+            elif Ex_power <= Electrolyser_gls.min_power:
+                Electrolyser_storage = 0
+            else:
+                electrolyser.set_power_group(Electrolyser_gls, Ex_power)
+                if Hydrogen_tank_gls.p <= 200 * p0:
+                    Electrolyser_storage = Electrolyser_gls.power()
+                    Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
         Battery_storage = Battery_gls.discharge(time=900)
-        Electrolyser_storage = 0
-    h2_production_cost.append(Electrolyser_storage * res_av_cost * 0.25)
+        h2_production_cost.append(Electrolyser_storage * res_av_cost * 0.25)
     electrolyser_input_power.append(Electrolyser_storage)
 
     # -----------------------------Hydrogen Consumption----------------------------------
@@ -240,19 +240,20 @@ while cycle < total_cycle:
 
     external_grid_power.append(gls_network_results['External_grid']['p_mw'][0])
 
-    #-------------------------------------------economics------------------------------------------
+    # -------------------------------------------economics------------------------------------------
     expenditure.append(
-            (gls_network_results['External_grid']['p_mw'][0]) * 0.25 * predicted_day_ahead_ele_price[hour]+
-             RE_power *res_av_cost)
+        (gls_network_results['External_grid']['p_mw'][0]) * 0.25 * predicted_day_ahead_ele_price[hour] +
+        RE_power * res_av_cost)
 
     accumulated_expenditure.append(np.array(expenditure).sum())
     accumulated_h2_production_cost.append(np.array(h2_production_cost).sum())
     accumulated_hydrogen_consumption.append(np.array(hydrogen_consumption).sum())
 
-    if Electrolyser_storage>0:
+    if Electrolyser_storage > 0:
         percentage_using_res.append(1)
     else:
         percentage_using_res.append(0)
+
     print(cycle)
     cycle += 1
     pass
@@ -265,52 +266,44 @@ fig, ax = plt.subplots()
 ax.plot(time_plt, supply_RES, 'ro-')
 ax.set_xlabel('Time/ hour')
 ax.set_ylabel('Power supplied by RES/ MW')
-plt.savefig(figure_file /'Usecase2' / 'res.png', dpi=150)
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'res.png', dpi=150)
 
 # battery soc
 fig_battery, ax_battery = plt.subplots()
 ax_battery.plot(time_plt, battery_soc, 'bo-')
 ax_battery.set_xlabel('Time/ hour')
 ax_battery.set_ylabel('Battery SOC')
-plt.savefig(figure_file /'Usecase2' / 'battery_soc.png', dpi=150)
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'battery_soc.png', dpi=150)
 
 # hydrogen tank pressure
 fig_hydrogen, ax_hydrogen = plt.subplots()
 ax_hydrogen.plot(time_plt, hydrogen_pressure, 'go-')
 ax_hydrogen.set_xlabel('Time/ hour')
 ax_hydrogen.set_ylabel('Hrdrogen pressure/ Mpa')
-plt.savefig(figure_file /'Usecase2' / 'H2Pressure.png', dpi=150)
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'H2Pressure.png', dpi=150)
 
 # external grid power
 fig_eg, ax_eg = plt.subplots()
 ax_eg.plot(time_plt, external_grid_power, color='black', marker='x')
 ax_eg.set_xlabel('Time/ hour')
 ax_eg.set_ylabel('Power supplied by external grid/ MW')
-plt.savefig(figure_file /'Usecase2' / 'external power.png', dpi=150)
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'external power.png', dpi=150)
 
 # electrolyser
 fig_ele, ax_ele = plt.subplots()
 ax_ele.plot(time_plt, electrolyser_input_power, color='black', marker='o')
 ax_ele.set_xlabel('Time/ hour')
 ax_ele.set_ylabel('Electrolyser input power/ MW')
-plt.savefig(figure_file /'Usecase2' / 'electrolyser.png')
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'electrolyser.png')
 
 # green hydrogen
 fig_per, ax_per = plt.subplots()
 ax_per.plot(time_plt, percentage_using_res, color='black')
 ax_per.set_xlabel('Time/ hour')
 ax_per.set_ylabel('Electrolyser input power/ MW')
-plt.savefig(figure_file /'Usecase2' / 'percentage.png')
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'percentage.png')
 
 # economics
-# TODO: using subplots(2, sharey = True) to plot this figure
-
 fig_eco, (ax_acc, ax_eco) = plt.subplots(2, sharex=True)
 
 ax_eco.plot(time_plt, expenditure, color='deepskyblue', label='expedicture per 15min')
@@ -322,8 +315,7 @@ ax_acc.plot(time_plt, accumulated_expenditure, color='steelblue', label='accumul
 ax_acc.set(ylabel='Expenditure/ Euros')
 ax_acc.legend()
 
-plt.savefig(figure_file /'Usecase2' / 'economics.png')
-
+plt.savefig(figure_file / 'Usecase1_RB' / 'economics.png')
 
 # Write all results in a dictionary
 results = {}
@@ -334,11 +326,12 @@ results['external_grid_power'] = external_grid_power
 results['electrolyser_input_power'] = electrolyser_input_power
 results['expenditure'] = expenditure
 results['accumulated_expenditure'] = accumulated_expenditure
+results['h2_production_cost_per_15min'] = h2_production_cost
+results['h2_production_cost_per_accumulated'] = accumulated_h2_production_cost
 
 pd_results = pd.DataFrame(results)
+
 try:
-    pd_results.to_csv(figure_file /'Usecase2' /'results_usecase2.csv')
+    pd_results.to_csv(figure_file / 'Usecase1_RB' / 'results_usecase1.csv')
 except PermissionError:
     print('File already exists')
-
-print(np.array(accumulated_expenditure).max())

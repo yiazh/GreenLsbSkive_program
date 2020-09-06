@@ -269,7 +269,7 @@ def set_power_group(ele=electrolyser_group(), power=14.5):
 #         return self.E_cell_empirical() / E_tn
 
 if __name__ == '__main__':
-    test = 2
+    test = 1
     if test == 0:
         fig, ax = plt.subplots()
         for temperature in range(273, 323, 10):

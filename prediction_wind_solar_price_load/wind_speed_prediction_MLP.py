@@ -17,7 +17,6 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -43,7 +42,9 @@ input_size = 24
 hidden_size = 40
 
 ws_mlp_model = WS_neural_network(input_size, hidden_size)
-Predicted_parameter_path = Path(Path().absolute() / "wind_mlp.pth")
+directory_path = os.path.dirname(__file__)
+Predicted_parameter_path = r'{}/wind_mlp.pth'.format(directory_path)
+print(Predicted_parameter_path)
 
 try:
     ws_mlp_model.load_state_dict(torch.load(Predicted_parameter_path))

@@ -1,3 +1,4 @@
 # GreenLsbSkive_program
 
-Have a nice day.
+Python version:3.7
+Involved python package: numpy, scipy, pandas, pandapower, pytorch, matplotlib.pyplot, mip...

@@ -3,7 +3,7 @@ Created on: ********
 
 Author: Yi Zheng, Department of Electrical Engineering, DTU
 
-Some confused syntax is tested in this file.1
+Some confused syntax is tested in this file.
 '''
 
 # Understanding multiple inheritance

@@ -1,0 +1,16 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>Modified/system.jpg</file>
+    <file>Modified/logo.png</file>
+    <file>Modified/battery.jpg</file>
+    <file>Modified/buffer-tank.jpg</file>
+    <file>Modified/New Project (1).jpg</file>
+    <file>Modified/chemical plant.jpg</file>
+    <file>Modified/electrolysis.jpg</file>
+    <file>Modified/H2.jpg</file>
+    <file>Modified/methanol.jpg</file>
+    <file>Modified/png-transparent-biogas-technology-renewable-energy-computer-icons-technology-electronics-apartment-renewable-energy.jpg</file>
+    <file>Modified/pv.jpg</file>
+    <file>Modified/wt.jpg</file>
+  </qresource>
+</RCC>

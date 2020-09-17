@@ -1,4 +1,0 @@
-S1: Low renewables and low prices
-S2: Low renewables and high prices
-S3: High renewables and low prices
-S4: High renewables and high prices

@@ -8,7 +8,7 @@ GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 A
 Day-ahead scheduling of GLS using real data to predict wind speed, solar irradiation and surrounding temperature.
 '''
 from scipy.stats import weibull_min
-from equipment_package import wind_turbine, battery, hydrogen
+from equipment_package import wind_turbine, battery, hydrogen_tank
 from equipment_package import pv, electrolyser,gls_network_function
 import os
 import math
@@ -51,7 +51,7 @@ Battery_gls = battery.battery_bank(soc_min = 0)
 Electrolyser_gls = electrolyser.electrolyser_group()
 
 #Build the hydrogen tank
-Hydrogen_tank_gls = hydrogen.hydrogen_tank()
+Hydrogen_tank_gls = hydrogen_tank.hydrogen_tank()
 
 supply_hourly = []
 battery_soc = []

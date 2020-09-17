@@ -8,7 +8,7 @@ GreenLab Skive: latitude: 56.645347 Longitude: 8.978147
 This program calculates on-grid operation of GreenLab skive. No real data of wind and solar power
 '''
 from scipy.stats import weibull_min
-from equipment_package import wind_turbine, battery, hydrogen
+from equipment_package import wind_turbine, battery, hydrogen_tank
 from equipment_package import pv, electrolyser,gls_network_function
 import math
 import numpy as np
@@ -50,7 +50,7 @@ Battery_gls = battery.battery_bank(soc_min = 0)
 Electrolyser_gls = electrolyser.electrolyser_group()
 
 #Build the hydrogen tank
-Hydrogen_tank_gls = hydrogen.hydrogen_tank()
+Hydrogen_tank_gls = hydrogen_tank.hydrogen_tank()
 
 #Build the load
 pass

@@ -10,7 +10,7 @@ or renewable energy generation.
 
 Edited on July 27, 2020
 '''
-from equipment_package import wind_turbine, battery, hydrogen
+from equipment_package import wind_turbine, battery, hydrogen_tank
 from equipment_package import pv, electrolyser, gls_network_function, economic
 import os
 import math
@@ -116,7 +116,7 @@ Battery_gls = battery.battery_bank(soc_min=0.1)
 Electrolyser_gls = electrolyser.electrolyser_group()
 
 # Build the hydrogen tank
-Hydrogen_tank_gls = hydrogen.hydrogen_tank(Volume_tank=100)  # Given the fact that trailers carry 1000kg H2
+Hydrogen_tank_gls = hydrogen_tank.hydrogen_tank(Volume_tank=100)  # Given the fact that trailers carry 1000kg H2
 
 # Build the load
 # default schedule of all loads

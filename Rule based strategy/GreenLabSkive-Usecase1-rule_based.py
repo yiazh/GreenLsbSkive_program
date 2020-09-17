@@ -5,7 +5,7 @@ Author: Yi Zheng
 
 GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 Azimuth:3
 '''
-from equipment_package import wind_turbine, battery, hydrogen
+from equipment_package import wind_turbine, battery, hydrogen_tank
 from equipment_package import pv, electrolyser, gls_network_function, economic
 from prediction_wind_solar_price_load import wind_speed_prediction_MLP, solar_irradiance_prediction, \
     ele_price_prediction
@@ -89,7 +89,7 @@ Battery_gls = battery.battery_bank(soc_min=0.1)
 Electrolyser_gls = electrolyser.electrolyser_group()
 
 # Build the hydrogen tank
-Hydrogen_tank_gls = hydrogen.hydrogen_tank(Volume_tank=60)  # Given the fact that trailers carry 1000kg H2
+Hydrogen_tank_gls = hydrogen_tank.hydrogen_tank(Volume_tank=60)  # Given the fact that trailers carry 1000kg H2
 
 # Build the load
 load_data_p_mw = [0.98,  # Quantfuel, 2020), start up tests currently. It also consumes H2,CH4 and plastic waster

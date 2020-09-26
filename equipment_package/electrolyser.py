@@ -269,25 +269,26 @@ def set_power_group(ele=electrolyser_group(), power=14.5):
 #         return self.E_cell_empirical() / E_tn
 
 if __name__ == '__main__':
-    test = 1
+    test = 0
     if test == 0:
         fig, ax = plt.subplots()
-        for temperature in range(273, 323, 10):
+        for temperature in range(273, 353, 20):
             a = electrolyser(T=temperature, I0_an=1e0, I0_ca=1e0, thickness=10e-4)
             current_density = [i * 50 for i in range(10, 200)]
             voltage = []
-            n_h2 = []
+            m_h2 = []
             power = []
             eff = []
             for c in current_density:
                 a.set_current_density(c)
                 voltage.append(a.E_cell())
-                n_h2.append(a.H2_production() * 3600)
+                m_h2.append(a.H2_production() * 3600)
                 power.append(a.power_input())
                 eff.append(a.efficiency())
             x = current_density
             y = voltage
-            ax.plot(power, n_h2, label=f'T={temperature}')
+            ax.plot(power, m_h2, label=f'T={temperature}')
+            print([round(m_h2[i]/power[i]*1e6,2) for i in range(1,20)])
             current_str = 'Current density/(A/m2)'
             ax.set(xlabel='Power/W', ylabel='M_h2/(kg/h)')
             # ax.set_xlim([0,1e4])

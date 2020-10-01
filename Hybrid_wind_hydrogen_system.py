@@ -4,18 +4,18 @@ Created on: 20200915
 Author: Yi Zheng, Department of Electrical Engineering, DTU
 
 '''
-from equipment_package import wind_turbine, electrolyser, hydrogen_tank
+from equipment_package import wind_turbine, electrolyser, hydrogen_tank, economic
 from prediction_wind_solar_price_load import ele_price_prediction
 from mip import Model, xsum, minimize, BINARY, MAXIMIZE
 from openpyxl import *
 from pathlib import Path
 from scipy import stats
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import GreenLabSkive_Usecase1_MILP_0802
-
 
 # An interesting fact is if you name this file GreenLabSkive-Usecase1_MILP_0802, it can not be imported. Did you notice
 # that a underscore is replaced by hyphen?
@@ -31,33 +31,39 @@ def _weibull_min(x, c, loc, scale):
 class HWHS():
     time_span = 0.25  # h
 
-    def deterministic_wind_power(self):
+    def __init__(self, wt=wind_turbine.wind_turbine()):
+        self.WT = wt
+
+    def historical_wind_power(self):
         '''
         Give a deterministic wind power so that we can start preliminary optimization. It would be useless in the future.
         :return: MW
         '''
         # Real data for someday in 2016
-        wind_speed = np.array([10.98, 10.81, 10.65, 10.48, 10.43, 10.37, 10.32, 10.31, 10.3, 10.29, 10.24,
-                               10.2, 10.15, 9.89, 9.64, 9.38, 9.49, 9.61, 9.72, 9.65, 9.58, 9.5, 9.27, 9.04])
-        WT_gls = wind_turbine.wind_turbine(r=50, height=55)
+        # wind_speed = np.array([10.98, 10.81, 10.65, 10.48, 10.43, 10.37, 10.32, 10.31, 10.3, 10.29, 10.24,
+        #                        10.2, 10.15, 9.89, 9.64, 9.38, 9.49, 9.61, 9.72, 9.65, 9.58, 9.5, 9.27, 9.04])
+        wind_speed = np.array([4.03, 4.02, 4.01, 4, 3.92, 3.84, 3.77, 3.91, 4.06, 4.21, 4.29, 4.36, 4.44,
+                                     4.73, 5.02, 5.31, 5.22, 5.13, 5.03, 4.94, 4.84, 4.74, 4.58, 4.42])
+
         # These are hourly data while our time span is 15 min. Thus we need to make it consistent with
         # other parameters by repeating each element four times
-        return np.asarray([[13 * WT_gls.wt_ac_output(i)] * 4 for i in wind_speed]).flatten()
+        return np.asarray([[13 * self.WT.wt_ac_output(i)] * 4 for i in wind_speed]).flatten()
 
-    def deteministic_price(self):
+    def historical_price(self):
         # Euros/Mwh
         return np.asarray(
             [[i] * 4 for i in ele_price_prediction.Ele_price_prediction()]).flatten()
 
-    def deteministic_power_load(self):
+    def historical_power_load(self):
         # MW
         return np.asarray([i + 0.8 for i in GreenLabSkive_Usecase1_MILP_0802.load_data_p_ex])
 
-    def deterministic_hydrogen_load(self):
+    def historical_hydrogen_load(self):
         # kg/h
         return np.asarray([i * 4 for i in GreenLabSkive_Usecase1_MILP_0802.h2_consumption_all])
 
-    def optimize_operation_HWHS(self, number=96, tank_size=3000, ele_capacity=14, save = True, *args, **kwargs):
+    def optimize_operation_HWHS(self, number=96, tank_size=3000, ele_capacity=14, save=False, *args, **kwargs):
+
         p_w_t = kwargs['wind_power']
         pi_t = kwargs['price']
         p_l_t = kwargs['power_load']
@@ -67,6 +73,8 @@ class HWHS():
         C_m_ele = 20.5 / 2 * 18 * 0.063 * 0.13  # Euros/MWh 1MWh electricity->20.5kg H2 ->
         # 20.5/2 kmol H2 -> 20.5/2 kmol H2O -> 20.5/2*18 kg H2O -> 0.063DKK/kg H2O
         C_m_comp = 3600 / 3.221 * 0.004
+
+        h2_price = 2
         '''
         According to Hydrogen Station Compression, Storage, and Dispensing Technical Status and Costs: Systems Integration, 
         compressor that impoves hydrogen pressure to 350bar gives an additional cost to hydrogen as $0.14/kg, provided the
@@ -120,35 +128,49 @@ class HWHS():
 
             else:
                 GLS_milp_model += hydrogen_level[t] - hydrogen_level[t - 1] == (
-                            power_ele[t] * 20.5 - m_l_h2_t[t]) * self.time_span
+                        power_ele[t] * 20.5 - m_l_h2_t[t]) * self.time_span
 
         GLS_milp_model += hydrogen_level[-1] == Mh2_ini
+        # ---------------------------------------End constrains------------------------------------
 
         # optimize
         GLS_milp_model.optimize()
         print(GLS_milp_model.status.name)
         print(GLS_milp_model.objective.x)
-        if  save == True:
+        if GLS_milp_model.status.name!='INFEASIBLE':
             res_dict = {'Time': [i * 0.25 for i in range(number)],
                         'Price': pi_t,
-                        'Power from utility grid': [round(power_utility[i].x, 2) for i in range(number)],
+                        'Power to utility grid': [round(power_utility[i].x, 2) for i in range(number)],
                         'Electrolyser power': [round(power_ele[i].x, 2) for i in range(number)],
+                        'mh2': [round(power_ele[i].x, 2) * 20.5 for i in range(number)],
                         'Compressor power': [round(power_comp[i].x, 2) for i in range(number)],
                         'Wind power': p_w_t.round(2),
                         'Hydrogen level': [round(hydrogen_level[i].x) for i in range(number)]
                         }
-            print()
-            Saving_path = Path(Path().absolute() / 'Figure' / 'HWHS' / ('Temporary_1.xlsx'))
 
+            # -------------------------------------Daily profits---------------------------------------
+
+            DP = np.sum([(res_dict['Power to utility grid'][i] * res_dict['Price'][i] +
+                          res_dict['mh2'][i] * h2_price
+                          + p_l_t[i] * res_dict['Price'][i]) * self.time_span
+                         for i in range(number)])
+            print(f'Daily profits are : {DP}')
+        else:
+            DP = 0
+
+        if save == True:
+            Saving_path = Path(Path().absolute() / 'Figure' / 'HWHS' / ('Temporary_1.xlsx'))
             pd_results = pd.DataFrame(res_dict)
 
             try:
                 pd_results.to_excel(Saving_path, float_format='%.3f', index=False)
             except PermissionError:
                 print('File already exists')
-        return GLS_milp_model.status.name, GLS_milp_model.objective.x
 
-    def optimize_sizing_HWHS(self):
+        return GLS_milp_model.status.name, GLS_milp_model.objective.x, DP
+
+    def sensitivity_HWHS(self):
+        # A sensitivity analysis on design parameters: size of tank and electrolyser capacity
         nodes = 20
         capacity_ele = [i for i in np.linspace(2, 20, nodes)]
         tank_size = [i for i in np.linspace(1000, 6000, nodes)]
@@ -157,16 +179,16 @@ class HWHS():
         ax = fig.add_subplot(111, projection='3d')
         for i, ele in enumerate(capacity_ele):
             for j, tank in enumerate(tank_size):
-                status,optimized_result = self.optimize_operation_HWHS(tank_size=tank, ele_capacity=ele,
-                                                   wind_power=self.deterministic_wind_power(),
-                                                   price=self.deteministic_price(),
-                                                   power_load=self.deteministic_power_load(),
-                                                   hydrogen_load=self.deterministic_hydrogen_load(),
-                                                   save=False
-                                                   )
-                if status!= 'INFEASIBLE':
+                status, optimized_result, dp = self.optimize_operation_HWHS(tank_size=tank, ele_capacity=ele,
+                                                                        wind_power=self.historical_wind_power(),
+                                                                        price=self.historical_price(),
+                                                                        power_load=self.historical_power_load(),
+                                                                        hydrogen_load=self.historical_hydrogen_load(),
+                                                                        save=False
+                                                                        )
+                if status != 'INFEASIBLE':
                     inner_result[(i, j)] = optimized_result
-                    ax.scatter(ele, tank, inner_result[(i, j)], c = 'darkorange', marker = '>')
+                    ax.scatter(ele, tank, inner_result[(i, j)], c='darkorange', marker='>')
                 else:
                     inner_result[(i, j)] = 0
                 print(f'Cycle: ele_capacity ={ele}, tank_size = {tank}')
@@ -175,6 +197,27 @@ class HWHS():
         ax.set_zlabel('Optimal operational profit(€)')
         plt.show()
         return inner_result
+
+    def sizing_HWHS(self):
+        interest_rate = 0.07
+
+        def IRR(ele_capacity, tank_size):
+            c_cap = 13*self.WT.rated_power() * self.WT.capital_cost * 1000 + 1000 * ele_capacity * 1492 \
+                    + tank_size * 854 + 1000 * ele_capacity * 126 + ele_capacity * 20.5 * 13338
+            c_om = 13*self.WT.rated_power() * 1000 * 56 + 1000 * ele_capacity * 60 + tank_size * 8 + 20.5 * ele_capacity * 666
+            c_rep = 1000 * ele_capacity * 126 / (math.pow(1 + interest_rate, 15))
+            status, optimized_result, p_annual = self.optimize_operation_HWHS(tank_size=tank_size, ele_capacity=ele_capacity,
+                                                                            wind_power=self.historical_wind_power(),
+                                                                            price=self.historical_price(),
+                                                                            power_load=self.historical_power_load(),
+                                                                            hydrogen_load=self.historical_hydrogen_load(),
+                                                                            save=False
+                                                                              )
+            print(f'The annual cost and annual profit are {c_om} , {365*p_annual}, respectively ')
+            return economic.internal_rate_of_return(initial_investment=c_cap+c_rep, annual_cost=c_om,
+                                                    annual_profit=p_annual*365,length_project=20)
+
+        print(f'The internal rate of return is {round(IRR(ele_capacity=14,tank_size=3000),3)}')
 
 
 class Uncertainity_variable():
@@ -271,8 +314,5 @@ class Uncertainity_variable():
 
 
 if __name__ == '__main__':
-    a = HWHS()
-    c = a.optimize_operation_HWHS(wind_power=a.deterministic_wind_power(), price=a.deteministic_price(),
-                                  power_load=a.deteministic_power_load(), hydrogen_load=a.deterministic_hydrogen_load())
-    d = a.optimize_sizing_HWHS()
-    print(d)
+    a = HWHS(wind_turbine.wind_turbine(r=45, height=55))
+    a.sizing_HWHS()

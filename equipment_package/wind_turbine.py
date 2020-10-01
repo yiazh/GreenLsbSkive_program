@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 class wind_turbine():
     rho = 1.08 # Air density, kg/m3
-    def __init__(self,C_p = 0.42, r = 40, height = 40,capital_cost = 1784, OM_cost = 0.03, V_ci = 4, V_co = 25, V_r = 14):
+    def __init__(self,C_p = 0.42, r = 40, height = 40,capital_cost = 1547, OM_cost = 0.03, V_ci = 4, V_co = 25, V_r = 14):
         """
         Construction of wind turbine
         :param C_p: Power coefficient
@@ -17,8 +17,8 @@ class wind_turbine():
         :param height:
         :param capital_cost: Euros/kW
         :param OM_cost: Operation and maintanence cost as a percentage of capital cost
-        :param V_ci: cut in speed
-        :param V_co: cut out speed
+        :param V_ci: cut-in speed
+        :param V_co: cut-out speed
         :param V_r: rated speed
         """
         self.C_p = C_p # Power coefficient
@@ -46,6 +46,9 @@ class wind_turbine():
             P = 0
         return P
 
+    def rated_power(self):
+        return self.wt_ac_output(v_wind=self.V_r)
+
     def get_v_wind(self, power):
         '''
         An auxilary function for potential use
@@ -65,8 +68,9 @@ class wind_turbine():
         return v
 
 if __name__ == '__main__':
-    a = wind_turbine(V_ci=5)
-    print(a.wt_ac_output(12))
+    a = wind_turbine(V_ci=5, r=45,height=50)
+    print(a.rated_power())
+    print(a.wt_ac_output(v_wind=10))
     ws = [i / 40 for i in range(0, 600)]
     b = []
     for c_i in ws:

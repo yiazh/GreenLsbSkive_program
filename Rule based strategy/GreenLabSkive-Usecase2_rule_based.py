@@ -47,7 +47,7 @@ Ambient_Data = pd.read_csv(File_data)
 # ---------------------------------------Data preprocessing-----------------------------------------
 Annual_real_rate = 0.05
 OandM_cost = (54 * 2e6 * 0.02 + 26.8 * 3e6 * 0.02) / (54 + 26.8) / (365 * 24)
-hourly_cost = economic.crf(Annual_real_rate) * (54 * 2e6 + 26.8 * 3e6) / 365 / 24 / (54 + 26.8)
+hourly_cost = economic.capital_recovery_factor(Annual_real_rate) * (54 * 2e6 + 26.8 * 3e6) / 365 / 24 / (54 + 26.8)
 res_av_cost = OandM_cost + hourly_cost
 
 # Build the wind turbines

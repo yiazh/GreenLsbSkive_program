@@ -113,8 +113,8 @@ external_grid_power = []
 hydrogen_consumption = []
 
 C_grid_t = []
-wind_price = economic.coe(54, 2e6, 2e6 * 0.02, 54 * 0.4)
-pv_price = economic.coe(26.8, 3e6, 3e6 * 0.02, 26.8 * 0.4)
+wind_price = economic.cost_of_energy(54, 2e6, 2e6 * 0.02, 54 * 0.4)
+pv_price = economic.cost_of_energy(26.8, 3e6, 3e6 * 0.02, 26.8 * 0.4)
 expenditure = []
 accumulated_expenditure = []
 

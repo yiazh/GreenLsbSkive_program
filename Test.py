@@ -107,6 +107,7 @@ def HSL2RGB(h, s, l):
 
     return rgb
 import numpy as np
+import math
 from scipy.stats import weibull_min, rv_continuous
 
 # Test self-defined random variables
@@ -115,7 +116,7 @@ class gaussian_gen(rv_continuous):
         return np.exp(-x**2/2.)/np.sqrt(2.0*np.pi)
 
 if __name__ == '__main__':
-    test = 8
+    test = 10
     if test == 1:
         # Multiple inheritance
         C()
@@ -123,6 +124,62 @@ if __name__ == '__main__':
         d = D()
         print(D.love)
         print(d.name)
+    elif test == 10:
+        # pso
+        def myfun(x):
+            x1 = x[0]
+            x2 = x[1]
+            return x1**2 +x2**2
+        def mycon(x):
+            x1 = x[0]
+            x2 = x[1]
+            return [x1**2-10,math.exp(x2)-6e6]
+        from pyswarm import pso
+        g,fg = pso(myfun, [2,6],[100,100],f_ieqcons=mycon)
+        print(f'Extreme point is {g} and corresponding value is {fg}')
+
+    elif test == 9:
+        # decorator and partial function
+        from functools import wraps
+
+        def decorator(func):
+            @wraps(func)
+            def new_func(*args):
+                print('Hi, xiongdi')
+                print('Jianghu')
+                return(func(*args)+10)
+            return new_func
+
+
+        # @decorator
+        def sum(*args):
+            s = 0
+            for i in args:
+                s = s+i
+            return s
+
+        print(sum(2,3,4,5))
+        print(sum.__name__)
+
+        from functools import partial
+
+
+        def sum(*args):
+            s = 0
+            for n in args:
+                s = s + n
+            return s
+
+
+        sum_add_10 = partial(sum, 10)  # 10 作用在sum第一个参数的位置
+        sum_add_10_20 = partial(sum, 10, 20)  # 10 20 分别作用在sum第一个和第二个参数的位置
+        print('A____________我们看下原函数sum的函数地址入口：')
+        print(sum)
+        print('B______我们看下partial函数返回函数的地址入口：')
+        print(partial(sum, 10))
+        print(sum_add_10(1, 2, 3, 4, 5))  # --> 10 + 1 + 2 + 3 + 4 + 5 = 25
+        print(sum_add_10_20(1, 2, 3, 4, 5))  # --> 10 + 20 + 1 + 2 + 3 + 4 + 5 = 45
+
     elif test == 2:
         # lambda function lambda arguments: return value
         plus_one = lambda x: x + 1

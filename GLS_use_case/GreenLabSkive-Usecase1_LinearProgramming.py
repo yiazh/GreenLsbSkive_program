@@ -99,7 +99,7 @@ load_data_p = {'Quantfuel': [],  # working time:10 hours per day,
                'Biogas': [2.5] * total_cycle,
                'Protein': [0.8] * total_cycle,
                'EverFuel': [],  # 8 hours per day, 0.15kW
-               'Recycle': [3.25] * total_cycle,
+               'GLS_use_case': [3.25] * total_cycle,
                'Methanol': [0.7] * total_cycle,
                'college': [2] * total_cycle,
                'electrolyser': [0] * total_cycle}

@@ -1,7 +1,13 @@
 '''
 Reference:https://github.com/tisimst/pyswarm
 Added on 09302020
+
+A pso algorithm for single-objective optimization, but it was not used.
+
+Reference:
+https://or.stackexchange.com/questions/4667/which-python-package-is-suitable-for-multiobjective-optimization
 '''
+
 
 from functools import partial
 import numpy as np
@@ -147,6 +153,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         fs = np.array(mp_pool.map(is_feasible, x))
     else:
         for i in range(S):
+            print(f'Initialization of the {i}^th particle')
             fx[i] = obj(x[i, :])
             fs[i] = is_feasible(x[i, :])
        
@@ -171,6 +178,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     # Iterate until termination criterion met ##################################
     it = 1
     while it <= maxiter:
+        print(it)
         rp = np.random.uniform(size=(S, D))
         rg = np.random.uniform(size=(S, D))
 
@@ -189,6 +197,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
             fs = np.array(mp_pool.map(is_feasible, x))
         else:
             for i in range(S):
+                print(f'Cycle:{it},Particle:{i}')
                 fx[i] = obj(x[i, :])
                 fs[i] = is_feasible(x[i, :])
 

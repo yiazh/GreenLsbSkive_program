@@ -62,7 +62,7 @@ def internal_rate_of_return(initial_investment=100, annual_cost=10, annual_profi
                                  annual_profit=annual_profit, length_project=length_project)
 
     if annual_profit < annual_cost:
-        return False
+        return -1
     else:
         a = -1
         b = 1

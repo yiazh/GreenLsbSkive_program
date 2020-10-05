@@ -64,7 +64,7 @@ plt.savefig(figure_file / 'wind_speed_pred.png', dpi=150)
 print('Prediction results saved')
 
 # Read data on 0411
-directory_path = Path(Path().absolute().parent)
+directory_path = Path(Path().absolute().parents[1])
 input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'
@@ -96,7 +96,7 @@ load_data_p_mw = [0.98,  # Quantfuel, 2020), start up tests currently. It also c
                   2.5,  # Biogas
                   0.8,  # Danish Marine Protein
                   0.15,  # Ever Fuel, fillinig typical four hours. 200bar to 400bar, 900+kg Hydrogen
-                  3.25,  # Recycle facility
+                  3.25,  # GLS_use_case facility
                   0.7,  # Methanol facility
                   2,  # GreenSkive college
                   0,  # Electrolyser, which is considered in storage

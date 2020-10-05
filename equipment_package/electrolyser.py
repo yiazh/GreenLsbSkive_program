@@ -287,10 +287,10 @@ if __name__ == '__main__':
                 eff.append(a.efficiency())
             x = current_density
             y = voltage
-            ax.plot(power, m_h2, label=f'T={temperature}')
+            ax.plot(current_density, voltage, label=f'T={temperature}')
             print([round(m_h2[i]/power[i]*1e6,2) for i in range(1,20)])
             current_str = 'Current density/(A/m2)'
-            ax.set(xlabel='Power/W', ylabel='M_h2/(kg/h)')
+            ax.set(xlabel='current_density', ylabel='eff')
             # ax.set_xlim([0,1e4])
             # ax.set_ylim([0,5])
         # ax.set(xlabel = 'Current density', ylabel = 'Voltage')

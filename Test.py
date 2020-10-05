@@ -109,7 +109,6 @@ def HSL2RGB(h, s, l):
 import numpy as np
 import math
 from scipy.stats import weibull_min, rv_continuous
-
 # Test self-defined random variables
 class gaussian_gen(rv_continuous):
     def _pdf(self, x):

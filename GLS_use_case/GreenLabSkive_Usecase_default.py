@@ -4,22 +4,24 @@ Created on June 14, 2020
 Author: Yi Zheng
 
 GreenLab Skive: latitude: 56.645347 Longitude: 8.978147 Elevation:30m Slope:44 Azimuth:3
-Linear programming method is based on the package "mip".
+
+20200701:set this program as default case1. we will have four scenarios depending on the external price
+or renewable energy generation.
+
+Edited on July 27, 2020
 '''
-import os
-import math
-import numpy as np
-import pandas as pd
-import pandapower as pp
-import matplotlib.pyplot as plt
-from scipy import optimize as op
 from equipment_package import wind_turbine, battery, hydrogen_tank
 from equipment_package import pv, electrolyser, gls_network_function, economic
+import os
+import math
+import scipy.signal as signal  # Used to get extremum
+from scipy import optimize as op
+import numpy as np
+import pandapower as pp
+import pandas as pd
+import matplotlib.pyplot as plt
 from prediction_wind_solar_price_load import wind_speed_prediction_MLP, solar_irradiance_prediction, \
     ele_price_prediction
-from itertools import product
-from sys import stdout as out
-from mip import Model, xsum, minimize, BINARY, MAXIMIZE
 from pathlib import Path
 from openpyxl import *
 
@@ -45,7 +47,7 @@ real_solar_irradiance = np.array([0, 0, 0, 0, 0, 23.66, 164.81, 394.79, 624.5, 8
                                   923.55, 775.91, 559.14, 333.03, 108.54, 0, 0, 0, 0, 0, 0])
 
 # meteorological data, some depend on forecast, others come from direct datasets.
-scenario = 'High_price'  # Normal, High_re, High_price,High_re_high_price
+scenario = 'High_re_high_price' # Normal, High_re, High_price,High_re_high_price
 
 if scenario == 'Normal':
     predicted_wind_speed = wind_speed_prediction_MLP.prediction_function_wind_mlp(previous_day_wind_speed_data)
@@ -68,10 +70,33 @@ elif scenario == 'High_re_high_price':
                                      10.2, 10.15, 9.89, 9.64, 9.38, 9.49, 9.61, 9.72, 9.65, 9.58, 9.5, 9.27, 9.04])
     predicted_day_ahead_ele_price = ele_price_prediction.Ele_price_prediction(temporaty_time=96)
     predicted_solar_irradiance = solar_irradiance_prediction.prediction_fun_solar_irradiance()
-    pass
+
+# fig_pre_solar, ax_pre_solar = plt.subplots()
+# ax_pre_solar.plot(range(real_solar_irradiance.__len__()), real_solar_irradiance,
+#                   color='orangered', label='real value')
+# ax_pre_solar.plot(range(predicted_solar_irradiance.__len__()), predicted_solar_irradiance,
+#                   color='navy', label='predicted value')
+# ax_pre_solar.legend()
+# ax_pre_solar.set_xlabel('Time(hour)')
+# ax_pre_solar.set_ylabel('Solar irradiance(W/m2)')
+# ax_pre_solar.grid()
+# plt.savefig(figure_file /'Usecase1' / 'solar_pred.png', dpi=150)
+#
+# fig_pre_wind, ax_pre_wind = plt.subplots()
+# ax_pre_wind.plot(range(real_observed_wind_speed.__len__()), real_observed_wind_speed,
+#                  color='orangered', label='real data')
+# ax_pre_wind.plot(range(predicted_wind_speed.__len__()), predicted_wind_speed,
+#                  color='navy', label='predicted data')
+# ax_pre_wind.legend()
+# ax_pre_wind.set_xlabel('Time(hour)')
+# ax_pre_wind.set_ylabel('Wind speed(m/s)')
+# ax_pre_wind.set_ylim([3,12])
+# ax_pre_wind.grid()
+# plt.savefig(figure_file /'Usecase1' / 'wind_speed_pred.png', dpi=150)
+# plt.show()
 
 # Read data on 0411
-directory_path = Path(Path().absolute().parent)
+directory_path = Path().absolute().parent
 input_data_path = r'{}/prediction_wind_solar_price_load/Historical_Data'.format(directory_path)
 
 File_data = input_data_path + '/pv_wind_data_0411.csv'
@@ -97,48 +122,43 @@ Hydrogen_tank_gls = hydrogen_tank.hydrogen_tank(Volume_tank=100)  # Given the fa
 # default schedule of all loads
 load_data_p = {'Quantfuel': [],  # working time:10 hours per day,
                'Biogas': [2.5] * total_cycle,
-               'Protein': [0] * total_cycle,
+               'Protein': [0.8] * total_cycle,
                'EverFuel': [],  # 8 hours per day, 0.15kW
-               'Recycle': [3.25] * total_cycle,
+               'GLS_use_case': [3.25] * total_cycle,
                'Methanol': [0.7] * total_cycle,
                'college': [2] * total_cycle,
-               'electrolyser': [0] * total_cycle}
+               'electrolyser': [0] * total_cycle
+               # This is considered as a kind of energy storage in power flow calcultion, however,
+               # to maintain the number of loads, it is set to zero.
+               }
 
-h2_consumption = {'Quantfuel': [],
+load_data_q_mvar = [0.2] * 8
+
+h2_consumption = {'Quantfuel_h2': [],
                   # 10-12 hours per day, 2100kg CH3OH per hour, 21kg H2 per hour, this estimation refers to
                   # "Alternative Diesel from Waste Plastics"
-                  'Methanol_systhesis': [15] * total_cycle,
+                  'Methanol_systhesis_h2': [15] * total_cycle,
                   # the production of methanol is expected to be 30000L/day methanol,
                   # CO2+3H2 = CH3OH + H2O. 90000L H2/day. The pressure of h2 is 35bar, meaning the density is 0.089g/l *35
                   # 0.089 *35 *9e4 = 280350g/day about 11.6 kg/hour
-                  'EverFuel': []  # two trailers. 4 hours per trailer and 1000kg /trailer
+                  'EverFuel_h2': []  # two trailers. 4 hours per trailer and 1000kg /trailer
                   }
 
-# default schedule of quantfuel and everfuel
+# default schedule of quantfuel
 for i in range(0, total_cycle):
     hour = i // 4
-    if hour >= 8 and hour <= 18:
+    if hour >= 0 and hour <= 24:
         load_data_p['Quantfuel'].append(0.98)
-        h2_consumption['Quantfuel'].append(5.25)
+        h2_consumption['Quantfuel_h2'].append(5.25)
     else:
         load_data_p['Quantfuel'].append(0)
-        h2_consumption['Quantfuel'].append(0)
+        h2_consumption['Quantfuel_h2'].append(0)
     if hour >= 8 and hour <= 16:
         load_data_p['EverFuel'].append(0.15)
-        h2_consumption['EverFuel'].append(62.5)
+        h2_consumption['EverFuel_h2'].append(62.5)
     else:
         load_data_p['EverFuel'].append(0)
-        h2_consumption['EverFuel'].append(0)
-
-h2_consumption_all = []
-for i in range(0, total_cycle):
-    a = 0
-    for j in h2_consumption.values():
-        a += j[i]
-    h2_consumption_all.append(a)
-h2_cost = 0
-green_hydrogen = 0
-h2_production_all = []
+        h2_consumption['EverFuel_h2'].append(0)
 
 # total active power load
 load_data_p_all = []
@@ -148,14 +168,46 @@ for i in range(total_cycle):
         sum += value[i]
     load_data_p_all.append(sum)
 
-load_data_q_mvar = [0.2] * 8
+# Regarding hydrogen
+h2_consumption_all = []
+h2_production_all = [] # In this case, this variable is the same as h2_consumption_all
+electrolyser_power = []
+Mh2 = [0]*total_cycle
+Mh2_ini = 3000
+h2_tank_price = 25 / 24
+for i in range(0, total_cycle):
+    a = 0
+    for j in h2_consumption.values():
+        a += j[i]
+    h2_consumption_all.append(a)
+    electrolyser_power.append(min(12,a / 24 * 4+1.08))
+    h2_production_all.append(electrolyser_power[i]*0.25*24)
+    if i == 0:
+        Mh2[i]=Mh2_ini-h2_consumption_all[i]+electrolyser_power[i]*0.25*24
+    else:
+        Mh2[i]=Mh2[i-1]-h2_consumption_all[i]+electrolyser_power[i]*0.25*24
+
+def Merge(dict1, dict2):
+    res = {**dict1, **dict2}
+    return res
+
+load_data_p_copy = load_data_p
+load_data_p_copy['electrolyser']=electrolyser_power
+
+default_schedule = pd.DataFrame(Merge(load_data_p_copy, h2_consumption))
+figure_file = Path(Path().absolute() / 'Figure')
+try:
+    default_schedule.to_excel(figure_file / 'Usecase_default' / 'default_schedule.xlsx', float_format='%.2f')
+except PermissionError:
+    print('File already exists')
 
 supply_RES = []  # Total energy supplied by RES
 power_wind_t = []
 power_pv_t = []
-
 external_grid_power = []
 C_grid_t = []
+h2_cost = 0
+green_hydrogen = 0
 
 # only consider the operation and maintenance cost
 wind_price = 11.57  # 2e6*0.02/(8640*0.4)
@@ -163,10 +215,8 @@ pv_price = 17.36  # 3e6 * 0.02/(8640*0.4)
 expenditure = []
 accumulated_expenditure = []
 
-# Main loop
+# hourly generation of renewable energy
 cycle = 0
-
-# power of wind turbine and pv
 while cycle < total_cycle:
     # Corresponding time, hour
     hour = cycle // 4
@@ -192,121 +242,18 @@ while cycle < total_cycle:
     power_pv_t.append(np.array(pv_generation).sum())
 
     C_grid_t.append(predicted_day_ahead_ele_price[hour])
+
+    # Here we calculate the total cost of produced hydrogen.
+    surplus_power = power_wind_t[cycle] + power_pv_t[cycle] - load_data_p_all[cycle]
+    if surplus_power >= 0:
+        green_hydrogen += min(surplus_power, electrolyser_power[cycle]) * 0.25 * 24
+        h2_cost += min(surplus_power, electrolyser_power[cycle]) * 0.25 * (wind_price + pv_price) / 2 + \
+                   max(0, electrolyser_power[cycle] - surplus_power) * 0.25 * C_grid_t[cycle]
+    else:
+        green_hydrogen += 0
+        h2_cost += electrolyser_power[cycle] * 0.25 * C_grid_t[cycle]
     cycle += 1
     pass
-
-# define MILP model
-GLS_milp_model = Model('GLS', sense=MAXIMIZE, solver_name='CBC')
-
-# add the variables
-power_ex_grid = [GLS_milp_model.add_var(lb=-100, ub=100, var_type='C') for i in range(total_cycle)]
-power_battery = [GLS_milp_model.add_var(lb=-1.36, ub=1.36, var_type='C') for i in range(total_cycle)]
-power_ele = [GLS_milp_model.add_var(lb=0, ub=12, var_type='C') for i in range(total_cycle)]
-power_protein = [GLS_milp_model.add_var(lb=0.6, ub=1.0, var_type='C') for i in range(total_cycle)]
-soc = [GLS_milp_model.add_var(lb=Battery_gls.soc_min, ub=Battery_gls.soc_max, var_type='C') for i in range(total_cycle)]
-Mh2 = [GLS_milp_model.add_var(lb=0, var_type='C') for i in range(total_cycle)]
-quantfuel_h2 = [GLS_milp_model.add_var(lb=0, var_type='C') for i in
-                range(total_cycle)]
-methanol_h2 = [GLS_milp_model.add_var(lb=0, var_type='C') for i in
-               range(total_cycle)]
-
-# Integer variable
-everfuel_h2 = [GLS_milp_model.add_var(var_type='B') for i in range(total_cycle)]
-
-# Add objective function
-GLS_milp_model.objective = xsum(power_ele[i] for i in range(total_cycle))
-# GLS_milp_model.objective = Mh2[-1]
-
-# Equality constrain: conservation of energy
-for t in range(total_cycle):
-    GLS_milp_model += power_pv_t[t] + power_wind_t[t] + power_ex_grid[t] - \
-                      power_ele[t] - power_battery[t] - power_protein[t] - \
-                      load_data_p_all[t] == 0
-
-# Constrain regarding battery soc
-soc_int = 0.6
-Q = Battery_gls.capacity * Battery_gls.E_bat / 1e6
-for t in range(total_cycle):
-    if t == 0:
-        GLS_milp_model += soc[t] - soc_int - power_battery[t] * 15 / 60 / Q == 0
-    else:
-        GLS_milp_model += soc[t] - soc[t - 1] - power_battery[t] * 15 / 60 / Q == 0
-
-# Constrain regarding hydrogen tank
-Mh2_ini = 3000
-for t in range(total_cycle):
-    if t == 0:
-        GLS_milp_model += Mh2[t] - Mh2_ini + quantfuel_h2[t] + everfuel_h2[t] * 62.5 + methanol_h2[t] - power_ele[
-            t] * 0.25 * 24 == 0
-    else:
-        GLS_milp_model += Mh2[t] - Mh2[t - 1] + quantfuel_h2[t] + everfuel_h2[t] * 62.5 + methanol_h2[t] - power_ele[
-            t] * 0.25 * 24 == 0
-
-# The total consumption after re-scheduel should be the same
-GLS_milp_model += xsum(power_protein[i] for i in range(total_cycle)) - 0.8 * total_cycle == 0
-GLS_milp_model += xsum(quantfuel_h2[i] for i in range(total_cycle)) - \
-                  xsum(h2_consumption['Quantfuel'][i] for i in range(total_cycle)) == 0
-GLS_milp_model += xsum(methanol_h2[i] for i in range(total_cycle)) - \
-                  xsum(h2_consumption['Methanol_systhesis'][i] for i in range(total_cycle)) == 0
-GLS_milp_model += xsum(everfuel_h2[i] * 62.5 for i in range(total_cycle)) - \
-                  xsum(h2_consumption['EverFuel'][i] for i in range(total_cycle)) == 0
-
-# Consumption should be in a reasonable range
-for t in range(total_cycle):
-    GLS_milp_model += quantfuel_h2[t] >= h2_consumption['Quantfuel'][t] * 0.8
-    GLS_milp_model += quantfuel_h2[t] <= h2_consumption['Quantfuel'][t] * 1.2
-
-    GLS_milp_model += methanol_h2[t] >= h2_consumption['Methanol_systhesis'][t] * 0.8
-    GLS_milp_model += methanol_h2[t] <= h2_consumption['Methanol_systhesis'][t] * 1.2
-
-# Only using renewable energy to generate hydrogen
-for t in range(total_cycle):
-    surplus_power = power_wind_t[t] + power_pv_t[t] - load_data_p_all[t]-0.8
-    if surplus_power >= 0:
-        GLS_milp_model += power_ele[t] + power_battery[t] + power_protein[t] - surplus_power <= 0
-    else:
-        GLS_milp_model += power_ele[t] <= 0
-
-# Optimize
-GLS_milp_model.optimize()
-print(GLS_milp_model.status.name)
-
-res_dict_opt = {'external_grid': [power_ex_grid[i].x for i in range(total_cycle)],
-                'battery': [power_battery[i].x for i in range(total_cycle)],
-                'electrolyser': [power_ele[i].x for i in range(total_cycle)],
-                'protein': [power_protein[i].x for i in range(total_cycle)],
-                'soc': [soc[i].x for i in range(total_cycle)],
-                'Mh2': [Mh2[i].x for i in range(total_cycle)],
-                'quantafuel_h2': [quantfuel_h2[i].x for i in range(total_cycle)],
-                'methanol_h2': [methanol_h2[i].x for i in range(total_cycle)],
-                'everfuel_h2': [everfuel_h2[i].x * 62.5 for i in range(total_cycle)]
-                }
-
-# fig,ax = plt.subplots()
-# ax.plot(range(res_dict_opt['everfuel_h2'].__len__()), res_dict_opt['everfuel_h2'], color = 'red')
-
-load_data_p['Protein'] = res_dict_opt['protein']
-
-# Calculate the hydrogen data under optimized schedule
-
-cycle_h2 = 0
-while cycle_h2 < total_cycle:
-
-    # H2 production is proportional to power of electrolyser
-    h2_production_all.append(res_dict_opt['electrolyser'][cycle_h2] * 0.25 * 24)
-    surplus_power = power_wind_t[cycle_h2] + power_pv_t[cycle_h2] - load_data_p_all[cycle_h2]
-
-    # If there is surplus renewable energy, green hydrogen can be generated. 
-    # Provided that the surplus energy is not enough for electrolyser schedule, external power will be used.
-    if surplus_power >= 0:
-        green_hydrogen += min(surplus_power, res_dict_opt['electrolyser'][cycle_h2]) * 0.25 * 24
-        h2_cost += min(surplus_power, res_dict_opt['electrolyser'][cycle_h2]) * 0.25 * (wind_price + pv_price) / 2 + \
-                   max(0, res_dict_opt['electrolyser'][cycle_h2] - surplus_power) * 0.25 * C_grid_t[cycle_h2]
-    else:
-        # No surplus leads to no green hydrogen
-        green_hydrogen += 0
-        h2_cost += res_dict_opt['electrolyser'][cycle_h2] * 0.25 * C_grid_t[cycle_h2]
-    cycle_h2 += 1
 
 cycle_power_flow = 0
 
@@ -331,8 +278,7 @@ while cycle_power_flow < total_cycle:
     # %% Change storage
     gls_network.storage
 
-    gls_network.storage.loc[:, 'p_mw'] = res_dict_opt['battery'][cycle_power_flow] \
-                                         + res_dict_opt['electrolyser'][cycle_power_flow]
+    gls_network.storage.loc[:, 'p_mw'] = electrolyser_power[cycle_power_flow]
 
     # %% Change power of generators
     gls_network.sgen.loc[:, 'name']  # order in which to supply generator data
@@ -366,54 +312,63 @@ while cycle_power_flow < total_cycle:
 
     external_grid_power.append(gls_network_results['External_grid']['p_mw'][0])
 
-    expenditure.append((external_grid_power[cycle_power_flow] * C_grid_t[cycle_power_flow] +
+    if cycle_power_flow !=0:
+        expenditure.append((external_grid_power[cycle_power_flow] * C_grid_t[cycle_power_flow] +
                         power_wind_t[cycle_power_flow] * wind_price + power_pv_t[cycle_power_flow] * pv_price +
-                        0) * 24 / total_cycle)
+                        0) * 24 / total_cycle + (Mh2
+                       [cycle_power_flow - 1] - Mh2[cycle_power_flow] ) * h2_tank_price)
+    else:
+        expenditure.append((external_grid_power[cycle_power_flow] * C_grid_t[cycle_power_flow] +
+                        power_wind_t[cycle_power_flow] * wind_price + power_pv_t[cycle_power_flow] * pv_price +
+                        0) * 24 / total_cycle + (Mh2_ini - Mh2[cycle_power_flow]) * h2_tank_price)
+
     accumulated_expenditure.append(np.array(expenditure).sum())
 
     print(cycle_power_flow)
 
     cycle_power_flow += 1
 
-res_dict = {'P_grid': np.array(external_grid_power),
-            'P_wind': np.array(power_wind_t),
-            'P_pv': np.array(power_pv_t),
-            'P_b': res_dict_opt['battery'],
-            'P_ele': res_dict_opt['electrolyser'],
-            'P_pro': res_dict_opt['protein'],
-            'P_recycle':load_data_p['Recycle'],
-            'P_biogas':load_data_p['Biogas'],
-            'soc': res_dict_opt['soc'],
-            'Mh2': res_dict_opt['Mh2'],
-            'price_grid': np.array(C_grid_t),
-            'expenditure': np.array(expenditure),
-            'accumulated_ex': np.array(accumulated_expenditure),
-            'quantafuel_h2': res_dict_opt['quantafuel_h2'],
-            'methanol_h2': res_dict_opt['methanol_h2'],
-            'everfuel_h2': res_dict_opt['everfuel_h2']
+res_dict = {'P_grid/MW': np.array(external_grid_power),
+            'P_wind/MW': np.array(power_wind_t),
+            'P_pv/MW': np.array(power_pv_t),
+            'P_b/MW': [0] * total_cycle,
+            'P_ele/MW': electrolyser_power,
+            'P_pro/MW': load_data_p['Protein'],
+            'P_recycle/MW': load_data_p['GLS_use_case'],
+            'P_biogas/MW': load_data_p['Biogas'],
+            'soc': [0.6] * total_cycle,
+            'Mh2': Mh2,
+            'price_grid/(euros/MWh)': np.array(C_grid_t),
+            'expenditure/(euros/15min)': np.array(expenditure),
+            'accumulated_ex/euros': np.array(accumulated_expenditure),
+            'h2_consumption_all/(kg/15min)': np.array(h2_consumption_all),
             }
-
-Saving_path = Path(Path().absolute() / 'Figure' / 'Usecase2_MILP' / ('Usecase2_MILP_' + scenario + '.xlsx'))
 
 pd_results = pd.DataFrame(res_dict)
 
+Saving_path = Path(Path().absolute() / 'Figure' / 'Usecase_default' / ('usecase_de_' + scenario + '.xlsx'))
+
 try:
-    pd_results.to_excel(Saving_path)
+    pd_results.to_excel(Saving_path,float_format='%.3f')
 except PermissionError:
     print('File already exists')
 
+# Print total cost of H2, amount of green H2 and total consumption of H2, as well as the proportion of green hydrogen
+print(f'Total cost of hydrogen:{h2_cost}\n', f'Green hydrogen production:{green_hydrogen}\n',
+      f'Total hydrogen production:{np.array(h2_consumption_all).sum()}\n',
+      f'Proportion of green hydrogen:{green_hydrogen / np.array(h2_consumption_all).sum()}')
+
+# Write aforementioned information to existing excel
 wb = load_workbook(Saving_path)
-wb.active['R1'].value = 'Total cost of hydrogen(euros)'
-wb.active['S1'].value = h2_cost
-wb.active['R2'].value = 'Green hydrogen production(kg)'
-wb.active['S2'].value = green_hydrogen
-wb.active['R3'].value = 'Total hydrogen production(kg)'
-wb.active['S3'].value = np.array(h2_production_all).sum()
-wb.active['R4'].value = 'Proportion of green hydrogen'
-wb.active['S4'].value = green_hydrogen / np.array(h2_production_all).sum()
-wb.active['R5'].value = 'Total expenditure of the system(euros)'
-wb.active['S5'].value = accumulated_expenditure[-1]+(Mh2_ini-res_dict_opt['Mh2'][-1])*25/24
-wb.active['R6'].value = 'Average cost of hydrogen(euros/kg)'
-wb.active['S6'].value = h2_cost / np.array(h2_production_all).sum()
+wb.active['P1'].value = 'Total cost of hydrogen'
+wb.active['Q1'].value = h2_cost
+wb.active['P2'].value = 'Green hydrogen production'
+wb.active['Q2'].value = green_hydrogen
+wb.active['P3'].value = 'Total hydrogen production'
+wb.active['Q3'].value = np.array(h2_production_all).sum()
+wb.active['P4'].value = 'Proportion of green hydrogen'
+wb.active['Q4'].value = green_hydrogen / np.array(h2_production_all).sum()
+wb.active['P5'].value = 'Total expenditure of the system'
+wb.active['Q5'].value = accumulated_expenditure[-1]
 
 wb.save(Saving_path)

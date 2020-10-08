@@ -68,9 +68,9 @@ class wind_turbine():
         return v
 
 if __name__ == '__main__':
-    a = wind_turbine(V_ci=5, r=45,height=50)
+    a = wind_turbine(V_ci=4, r=45,height=55)
     print(a.rated_power())
-    print(a.wt_ac_output(v_wind=10))
+    print(a.wt_ac_output(v_wind=6))
     ws = [i / 40 for i in range(0, 600)]
     b = []
     for c_i in ws:

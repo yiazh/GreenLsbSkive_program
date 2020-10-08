@@ -144,7 +144,7 @@ while cycle < total_cycle:
             electrolyser.set_power_group(Electrolyser_gls, 12)
             if Hydrogen_tank_gls.p <= 200 * p0:
                 Electrolyser_storage = Electrolyser_gls.power()
-                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
+                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.m_H2(), time=900)
                 Battery_storage = Battery_gls.charge(time=900)
             else:
                 Battery_storage = Battery_gls.charge(time=900)
@@ -156,7 +156,7 @@ while cycle < total_cycle:
             electrolyser.set_power_group(Electrolyser_gls, Ex_power)
             if Hydrogen_tank_gls.p <= 200 * p0:
                 Electrolyser_storage = Electrolyser_gls.power()
-                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.n_H2(), time=900)
+                Hydrogen_tank_gls.blow_up(q_h2=Electrolyser_gls.m_H2(), time=900)
                 Battery_storage = 0
     else:
         Battery_storage = Battery_gls.discharge(time=900)

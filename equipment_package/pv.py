@@ -24,7 +24,7 @@ class pv():
         return output_pv
 
     def pv_ac_output(self, I_T, T_a):
-        c = converter(p_nom=4.6)
+        c = Inverter(p_nom=4.6)
         return c.p_ac(self.pv_dc_output(I_T, T_a))
 
 
@@ -35,7 +35,7 @@ photovoltaic systems(Eq 7)
 '''
 
 
-class converter(object):
+class Inverter(object):
 
     def __init__(self, p_nom):
         self.p_nom = p_nom
@@ -54,6 +54,7 @@ class converter(object):
         return scipy.optimize.fsolve(solve_p_ac, p_dc)[0]
 
 
+
 if __name__ == '__main__':
     a = pv()
     fig, ax = plt.subplots()
@@ -61,6 +62,5 @@ if __name__ == '__main__':
     for t in range(10, 40, 10):
         PV_ac = [a.pv_ac_output(I_T=i, T_a=t) for i in Irradiation]
         ax.plot(Irradiation, PV_ac)
-    b = converter(100)
-    print(b.p_ac(p_dc=90))
+    b = Inverter(100)
 # This model is mediocre

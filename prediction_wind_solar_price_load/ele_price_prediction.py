@@ -29,6 +29,7 @@ def Ele_price_prediction(temporaty_time =168):
 
 if __name__ == '__main__':
     a =Ele_price_prediction(temporaty_time=168)
+    print(a)
 
 
 

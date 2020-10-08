@@ -29,7 +29,7 @@ def derivative_Butler_bolmer(E_act_k, I, I0=3000, alpha=0.5, z=2, T=300):
 
 
 class electrolyser():
-    def __init__(self, T=300, p=p_0, A=0.05, I=5000, I0_an=1e-1, I0_ca=1e-1, thickness=3e-2, alpha_an=0.5,
+    def __init__(self, T=300, p=p_0, A=0.05, I=5000, I0_an=1e0, I0_ca=1e0, thickness=10e-4, alpha_an=0.5,
                  alpha_ca=0.5):
         self.T = T  # K
         self.p = p  # Pa
@@ -56,7 +56,10 @@ class electrolyser():
         \eta = \frac{H_{2,p}H_{H\!H\!V,H_2}}{E_{cell}I}
         :return:
         """
-        return self.H2_production() * 142000 / self.power_input() * 1000  #
+        if self.power_input() != 0:
+            return self.H2_production() * 142000 / self.power_input() * 1000  #
+        else:
+            return 0
         """
         The high heat value of hydrogen is 286kJ/mol, responding to around 142kJ/g, 142000kJ/kg
         Another choice is :
@@ -195,7 +198,7 @@ class electrolyser_group():
         # MW
         return self.series * self.parallel * self.single.power_input() / 1e6
 
-    def n_H2(self):
+    def m_H2(self):
         # mol/s
         # currently(0610), there is no startup function. This one can be regarded as a start
         return self.single.H2_production() * self.parallel * self.series
@@ -217,7 +220,7 @@ def set_power(ele=electrolyser(), power=1000):
     :param power:
     :return:
     '''
-    ia = 100
+    ia = 0
     ib = 10000
     if power < electrolyser(I=ia).power_input() or power > electrolyser(I=ib).power_input():
         print('Out of range of work')
@@ -239,6 +242,7 @@ def set_power(ele=electrolyser(), power=1000):
 
 
 def set_power_group(ele=electrolyser_group(), power=14.5):
+
     power_0 = min(max(power, ele.min_power), ele.max_power)
     power_1 = power_0 * 1e6 / (ele.series * ele.parallel)
     set_power(ele.single, power_1)
@@ -269,27 +273,28 @@ def set_power_group(ele=electrolyser_group(), power=14.5):
 #         return self.E_cell_empirical() / E_tn
 
 if __name__ == '__main__':
-    test = 1
+    test = 0
     if test == 0:
         fig, ax = plt.subplots()
-        for temperature in range(273, 323, 10):
-            a = electrolyser(T=temperature, I0_an=1e0, I0_ca=1e0, thickness=10e-4)
-            current_density = [i * 50 for i in range(10, 200)]
+        for temperature in range(273, 353, 20):
+            a = electrolyser(T=temperature,I0_ca=1, I0_an=1,p= 30*p_0)
+            current_density = [i * 50 for i in range(0, 200)]
             voltage = []
-            n_h2 = []
+            m_h2 = []
             power = []
             eff = []
             for c in current_density:
                 a.set_current_density(c)
                 voltage.append(a.E_cell())
-                n_h2.append(a.H2_production() * 3600)
+                m_h2.append(a.H2_production() * 3600)
                 power.append(a.power_input())
                 eff.append(a.efficiency())
-            x = current_density
-            y = voltage
-            ax.plot(power, n_h2, label=f'T={temperature}')
+            x = power
+            y = m_h2
+            ax.plot(x, y, label=f'T={temperature}')
+            print([round(m_h2[i]/3600/power[i]*142e6,5) for i in range(1,199)])
             current_str = 'Current density/(A/m2)'
-            ax.set(xlabel='Power/W', ylabel='M_h2/(kg/h)')
+            ax.set(xlabel='current_density', ylabel='eff')
             # ax.set_xlim([0,1e4])
             # ax.set_ylim([0,5])
         # ax.set(xlabel = 'Current density', ylabel = 'Voltage')
@@ -300,6 +305,11 @@ if __name__ == '__main__':
         print(a.max_power, a.min_power)
         set_power_group(a, 14.5)
         print(a.single.I)
+        print(a.single.efficiency())
+
+        b = electrolyser()
+        b.set_current_density(0)
+        print(b.efficiency())
         pass
     elif test == 2:
         a = electrolyser()
